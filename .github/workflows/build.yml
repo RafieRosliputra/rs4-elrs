@@ -9,7 +9,7 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Shared headers are identical in both sketches
         run: |
           diff remote/crsf.h receiver/crsf.h
@@ -30,7 +30,7 @@ jobs:
           - sketch: receiver
             fqbn: esp32:esp32:esp32c3:CDCOnBoot=cdc
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: arduino/setup-arduino-cli@v2
       - name: Install ESP32 core and libraries
         run: |
@@ -40,7 +40,17 @@ jobs:
           arduino-cli core install esp32:esp32
           arduino-cli lib install "Adafruit GFX Library" "Adafruit ST7735 and ST7789 Library"
       - name: Compile ${{ matrix.sketch }}
-        run: arduino-cli compile --warnings default --fqbn "${{ matrix.fqbn }}" --output-dir build/${{ matrix.sketch }} ${{ matrix.sketch }}
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! arduino-cli compile --warnings default --fqbn "${{ matrix.fqbn }}" \
+               --output-dir build/${{ matrix.sketch }} ${{ matrix.sketch }} 2>&1 | tee compile.log; then
+            # surface compiler errors as annotations (readable without the raw log)
+            grep -E "error|Error" compile.log | head -10 | while IFS= read -r l; do
+              echo "::error title=${{ matrix.sketch }}::${l//%/%25}"
+            done
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.sketch }}-bin
