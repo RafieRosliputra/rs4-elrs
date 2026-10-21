@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shared headers are identical in both sketches
+        run: |
+          diff remote/crsf.h receiver/crsf.h
+          diff remote/link_map.h receiver/link_map.h
+      - name: Protocol unit tests (CRC, CRSF, DJI packets)
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I receiver test/test_protocol.cpp -o test_protocol
+          ./test_protocol
+
+  firmware:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sketch: remote
+            fqbn: esp32:esp32:esp32s3:CDCOnBoot=cdc
+          - sketch: receiver
+            fqbn: esp32:esp32:esp32c3:CDCOnBoot=cdc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install ESP32 core and libraries
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+          arduino-cli lib install "Adafruit GFX Library" "Adafruit ST7735 and ST7789 Library"
+      - name: Compile ${{ matrix.sketch }}
+        run: arduino-cli compile --warnings default --fqbn "${{ matrix.fqbn }}" --output-dir build/${{ matrix.sketch }} ${{ matrix.sketch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.sketch }}-bin
+          path: build/${{ matrix.sketch }}/*.bin

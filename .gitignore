@@ -1,0 +1,4 @@
+build/
+test_protocol
+*.o
+.DS_Store
