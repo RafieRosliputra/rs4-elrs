@@ -39,7 +39,7 @@ static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi 
 uint16_t ch[16];
 uint32_t lastChMs = 0;
 uint32_t chFrames = 0;
-crsf::LinkStats link;
+crsf::LinkStats lstats;
 uint32_t lastLinkMs = 0;
 
 void onCrsf(uint8_t type, const uint8_t *p, uint8_t n, void *) {
@@ -48,7 +48,7 @@ void onCrsf(uint8_t type, const uint8_t *p, uint8_t n, void *) {
     lastChMs = millis();
     chFrames++;
   } else if (type == crsf::T_LINK_STATS) {
-    if (crsf::parseLinkStats(p, n, link)) lastLinkMs = millis();
+    if (crsf::parseLinkStats(p, n, lstats)) lastLinkMs = millis();
   }
 }
 crsf::Parser crsfParser(onCrsf, nullptr);
@@ -581,7 +581,7 @@ void loop() {
       Serial.printf("pan%+.2f tilt%+.2f zoom%+.2f cmd%u/%u recall%udps", crsf::toNorm(ch[CH_PAN]),
                     crsf::toNorm(ch[CH_TILT]), crsf::toNorm(ch[CH_ZOOM]), cmdFromStep(st), st & 1,
                     RECALL_DPS[recallFromNorm(crsf::toNorm(ch[CH_RECALL]))]);
-      if (lastLinkMs && now - lastLinkMs < 1000) Serial.printf(" LQ%u -%udBm", link.upLq, link.upRssi1);
+      if (lastLinkMs && now - lastLinkMs < 1000) Serial.printf(" LQ%u -%udBm", lstats.upLq, lstats.upRssi1);
     }
     Serial.printf(" | gimbal %s yaw%.1f pitch%.1f | zoom %.0f | can tx%lu fail%lu pk%lu bad%lu | \"%s\"\n",
                   gk ? "OK" : "--", gYaw / 10.0, gPitch / 10.0, zoomPos, (unsigned long)canTxOk,

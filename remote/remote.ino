@@ -189,14 +189,14 @@ void sendCommand(uint8_t value, const char *label) {
 // =====================================================================
 #define CR Serial1
 
-crsf::LinkStats link;
+crsf::LinkStats lstats;
 uint32_t lastLinkMs = 0, lastStatusMs = 0;
 char     rxStatus[20] = "";          // text from the receiver, e.g. "OK 1101"
 uint16_t chOut[16];
 
 void onCrsfFrame(uint8_t type, const uint8_t *p, uint8_t n, void *) {
   if (type == crsf::T_LINK_STATS) {
-    if (crsf::parseLinkStats(p, n, link)) lastLinkMs = millis();
+    if (crsf::parseLinkStats(p, n, lstats)) lastLinkMs = millis();
   } else if (type == crsf::T_FLIGHTMODE) {
     size_t k = 0;
     while (k < n && k < sizeof(rxStatus) - 1 && p[k]) { rxStatus[k] = (char)p[k]; k++; }
@@ -270,7 +270,7 @@ void crsfService() {
 #endif
 }
 
-bool linkUp() { return lastLinkMs && millis() - lastLinkMs < LINK_LOST_MS && link.upLq > 0; }
+bool linkUp() { return lastLinkMs && millis() - lastLinkMs < LINK_LOST_MS && lstats.upLq > 0; }
 
 // stored presets as reported by the receiver: "OK 1101" -> mask
 uint8_t presetMask() {
@@ -323,7 +323,7 @@ String liveJson() {
   j += ",\"move\":" + String(cfg.moveLevel) + ",\"zoom\":" + String(cfg.zoomLevel);
   j += ",\"calRange\":" + String(calRange ? "true" : "false");
   j += ",\"link\":" + String(linkUp() ? "true" : "false");
-  j += ",\"lq\":" + String(link.upLq) + ",\"rssi\":-" + String(link.upRssi1);
+  j += ",\"lq\":" + String(lstats.upLq) + ",\"rssi\":-" + String(lstats.upRssi1);
   j += ",\"rx\":\"" + String(rxStatus) + "\"}";
   return j;
 }
@@ -430,7 +430,7 @@ void drawScreen() {
   bool lk = linkUp();
   char st[12];
   rxState(st, sizeof st);
-  int lq = lk ? link.upLq : -1, rssi = lk ? link.upRssi1 : -1;
+  int lq = lk ? lstats.upLq : -1, rssi = lk ? lstats.upRssi1 : -1;
   int mask = presetMask();
 
   if (shown.first) {
@@ -601,7 +601,7 @@ void loop() {
     Serial.printf("raw X%4d Y%4d Z%4d | out pan%+.2f tilt%+.2f zoom%+.2f | MOVE%u ZOOM%u | ",
                   (int)rawF[0], (int)rawF[1], (int)rawF[2], out[0], out[1], out[2],
                   cfg.moveLevel, cfg.zoomLevel);
-    if (linkUp()) Serial.printf("LQ%u -%udBm", link.upLq, link.upRssi1);
+    if (linkUp()) Serial.printf("LQ%u -%udBm", lstats.upLq, lstats.upRssi1);
     else Serial.print("no link");
     Serial.printf(" | rx \"%s\" | crsf ok%lu bad%lu\n", rxStatus,
                   (unsigned long)crsfParser.good, (unsigned long)crsfParser.bad);
